@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>淡江大學軍訓室線上請假系統</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background-color: #f1f5f9; color: #334155; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+
+        /* 彈窗樣式 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); display: flex; justify-content: center; align-items: center; z-index: 999; }
+        .modal-card { background: white; padding: 35px; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
+        .modal-card h2 { margin-bottom: 8px; color: #1e293b; font-size: 1.4rem; }
+        .modal-card p { color: #64748b; font-size: 0.88rem; margin-bottom: 20px; }
+        
+        .form-group { text-align: left; margin-bottom: 15px; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
+
+        /* 密碼輸入框與眼睛按鈕容器 */
+        .password-wrapper { position: relative; display: flex; align-items: center; }
+        .password-wrapper input { padding-right: 40px; }
+        .toggle-eye { position: absolute; right: 10px; cursor: pointer; font-size: 1.1rem; user-select: none; opacity: 0.6; transition: opacity 0.2s; }
+        .toggle-eye:hover { opacity: 1; }
+
+        /* 忘記密碼連結 */
+        .forgot-pwd-link { display: inline-block; margin-top: 8px; font-size: 0.85rem; color: #2563eb; text-decoration: none; cursor: pointer; font-weight: 600; }
+        .forgot-pwd-link:hover { text-decoration: underline; }
+
+        /* 導覽列 */
+        .user-nav-bar { background-color: #1e293b; color: #ffffff; width: 100%; max-width: 1100px; padding: 12px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .nav-btns { display: flex; gap: 8px; }
+        .btn-pwd { background-color: #0284c7; color: white; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+        .btn-logout { background-color: #ef4444; color: white; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+        
+        .card { background-color: #ffffff; width: 100%; max-width: 1100px; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .header-title { font-size: 1.3rem; font-weight: 700; color: #1e293b; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        
+        .form-row { display: flex; gap: 15px; margin-bottom: 12px; }
+        .leave-summary-box { background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 15px; margin-bottom: 15px; display: flex; justify-content: space-between; color: #1e40af; font-weight: 600; }
+        
+        /* 個人學年度請假統計卡片 */
+        .academic-year-badge { background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .user-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .user-stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; text-align: center; }
+        .user-stat-card .title { font-size: 0.8rem; color: #64748b; font-weight: 600; }
+        .user-stat-card .val { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-top: 4px; }
+        .user-stat-card.warning .val { color: #dc2626; }
+
+        .btn { padding: 10px 16px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; }
+        .btn-primary { background-color: #2563eb; color: white; width: 100%; }
+        .btn-export { background-color: #059669; color: white; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left; }
+        th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #475569; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 600; }
+        .badge-pending { background-color: #fef3c7; color: #d97706; }
+        .badge-approved { background-color: #dcfce7; color: #15803d; }
+        .badge-rejected { background-color: #fee2e2; color: #b91c1c; }
+        .badge-cancelled { background-color: #f1f5f9; color: #64748b; }
+
+        .action-btn { padding: 5px 10px; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-right: 4px; }
+        .btn-approve { background-color: #22c55e; color: white; }
+        .btn-reject { background-color: #ef4444; color: white; }
+        .btn-cancel { background-color: #f97316; color: white; }
+        .btn-delete { background-color: #64748b; color: white; }
+
+        .view-panel { display: none; }
+        .view-panel.active { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- 登入視窗 -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal-card">
+        <h2>軍訓室請假系統登入</h2>
+        <p>請選擇您的姓名並輸入密碼進入系統</p>
+        <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>選擇帳號 (姓名/管理者)</label>
+                <select id="loginUserSelect" required>
+                    <option value="">-- 請選擇使用者 --</option>
+                    <optgroup label="主管與管理者身分">
+                        <option value="邱松嵐">邱松嵐 (室主任 / 一級主管)</option>
+                        <option value="陳逸弘">陳逸弘 (行政組長)</option>
+                        <option value="鍾博舜">鍾博舜 (教學組長)</option>
+                        <option value="虢恕仁">虢恕仁 (服務組長)</option>
+                        <option value="沈大鈞">沈大鈞 (室本部二級審核)</option>
+                        <option value="hr">人事管理員 (考勤統計匯出)</option>
+                    </optgroup>
+                    <optgroup label="室本部同仁">
+                        <option value="莊博鈞">莊博鈞</option><option value="陳志亮">陳志亮</option><option value="賴淑秀">賴淑秀</option>
+                    </optgroup>
+                    <optgroup label="行政組同仁">
+                        <option value="蔡志遠">蔡志遠</option><option value="陳祥吉">陳祥吉</option><option value="黃世杰">黃世杰</option>
+                        <option value="王志遠">王志遠</option><option value="徐至杰">徐至杰</option><option value="廖顏馥婷">廖顏馥婷</option>
+                        <option value="蔣德馨">蔣德馨</option><option value="夏紹俊">夏紹俊</option><option value="劉家勇">劉家勇</option>
+                        <option value="李憲中">李憲中</option><option value="曾柳僑">曾柳僑</option>
+                    </optgroup>
+                    <optgroup label="教學組同仁">
+                        <option value="林靖棠">林靖棠</option><option value="李聿婷">李聿婷</option><option value="黃偉誠">黃偉誠</option>
+                        <option value="邱順興">邱順興</option><option value="鄭惠文">鄭惠文</option>
+                    </optgroup>
+                    <optgroup label="服務組同仁">
+                        <option value="許家豪">許家豪</option><option value="徐建中">徐建中</option><option value="廖怡婷">廖怡婷</option>
+                        <option value="高喜兒">高喜兒</option><option value="蔡培君">蔡培君</option><option value="甯玉雯">甯玉雯</option>
+                        <option value="許欣恬">許欣恬</option><option value="蔡明浩">蔡明浩</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>登入密碼 (預設密碼為 123456)</label>
+                <div class="password-wrapper">
+                    <input type="password" id="loginPassword" placeholder="請輸入密碼" required value="123456">
+                    <span class="toggle-eye" onclick="togglePasswordVisibility('loginPassword', this)">👁️</span>
+                </div>
+                <div style="text-align:right;">
+                    <span class="forgot-pwd-link" onclick="openForgotModal()">忘記密碼？</span>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">登入系統</button>
+        </form>
+    </div>
+</div>
+
+<!-- 修改密碼彈窗 -->
+<div class="modal-overlay" id="pwdModal" style="display:none;">
+    <div class="modal-card">
+        <h2>修改個人密碼</h2>
+        <p>請輸入舊密碼與新密碼以進行修改</p>
+        <form onsubmit="handleChangePwd(event)">
+            <div class="form-group">
+                <label>目前密碼</label>
+                <div class="password-wrapper">
+                    <input type="password" id="oldPwd" required>
+                    <span class="toggle-eye" onclick="togglePasswordVisibility('oldPwd', this)">👁️</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>新密碼</label>
+                <div class="password-wrapper">
+                    <input type="password" id="newPwd" required>
+                    <span class="toggle-eye" onclick="togglePasswordVisibility('newPwd', this)">👁️</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn" style="background:#cbd5e1; flex:1;" onclick="closePwdModal()">取消</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">確認修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 忘記密碼 / 重置密碼彈窗 -->
+<div class="modal-overlay" id="forgotModal" style="display:none;">
+    <div class="modal-card">
+        <h2>重置密碼驗證</h2>
+        <p>請選擇您的帳號並進行核對驗證，驗證成功後將重置密碼為 123456</p>
+        <form onsubmit="handleResetPwd(event)">
+            <div class="form-group">
+                <label>請選擇您的帳號/姓名</label>
+                <select id="resetUserSelect" required>
+                    <option value="">-- 請選擇帳號 --</option>
+                    <option value="邱松嵐">邱松嵐</option><option value="陳逸弘">陳逸弘</option>
+                    <option value="鍾博舜">鍾博舜</option><option value="虢恕仁">虢恕仁</option>
+                    <option value="沈大鈞">沈大鈞</option><option value="莊博鈞">莊博鈞</option>
+                    <option value="陳志亮">陳志亮</option><option value="賴淑秀">賴淑秀</option>
+                    <option value="蔡志遠">蔡志遠</option><option value="陳祥吉">陳祥吉</option>
+                    <option value="黃世杰">黃世杰</option><option value="王志遠">王志遠</option>
+                    <option value="徐至杰">徐至杰</option><option value="廖顏馥婷">廖顏馥婷</option>
+                    <option value="蔣德馨">蔣德馨</option><option value="夏紹俊">夏紹俊</option>
+                    <option value="劉家勇">劉家勇</option><option value="李憲中">李憲中</option>
+                    <option value="曾柳僑">曾柳僑</option><option value="林靖棠">林靖棠</option>
+                    <option value="李聿婷">李聿婷</option><option value="黃偉誠">黃偉誠</option>
+                    <option value="邱順興">邱順興</option><option value="鄭惠文">鄭惠文</option>
+                    <option value="許家豪">許家豪</option><option value="徐建中">徐建中</option>
+                    <option value="廖怡婷">廖怡婷</option><option value="高喜兒">高喜兒</option>
+                    <option value="蔡培君">蔡培君</option><option value="甯玉雯">甯玉雯</option>
+                    <option value="許欣恬">許欣恬</option><option value="蔡明浩">蔡明浩</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>請選擇所屬組別 (安全身分核對)</label>
+                <select id="resetDeptSelect" required>
+                    <option value="">-- 請選擇組別 --</option>
+                    <option value="室本部">室本部</option>
+                    <option value="行政組">行政組</option>
+                    <option value="教學組">教學組</option>
+                    <option value="服務組">服務組</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn" style="background:#cbd5e1; flex:1;" onclick="closeForgotModal()">取消</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">重置密碼</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 頂部導覽列 -->
+<div class="user-nav-bar" id="mainNavBar" style="display:none;">
+    <div>
+        👤 當前登入者：<strong id="currentUserName" style="color:#60a5fa; font-size:1.1rem;"></strong> 
+        (<span id="currentUserRole" style="color:#cbd5e1;"></span>)
+    </div>
+    <div class="nav-btns">
+        <button class="btn-pwd" onclick="openPwdModal()">修改密碼</button>
+        <button class="btn-logout" onclick="logout()">登出系統</button>
+    </div>
+</div>
+
+<!-- 面板 1：一般同仁請假申請與個人學年度統計 -->
+<div id="panel-employee" class="card view-panel">
+    <div class="header-title">
+        <span>📊 本學年度個人請假累計統計</span>
+        <span class="academic-year-badge" id="academicYearLabel"></span>
+    </div>
+    <div class="user-stats-grid" id="userStatsGrid"></div>
+
+    <div class="header-title">📝 線上請假申請單</div>
+    <form id="leaveForm">
+        <div class="form-row">
+            <div class="form-group"><label>所屬組別</label><input type="text" id="deptShow" readonly style="background:#f8fafc;"></div>
+            <div class="form-group"><label>申請人姓名</label><input type="text" id="empNameShow" readonly style="background:#f8fafc;"></div>
+            <div class="form-group">
+                <label>假別</label>
+                <select id="leaveType" onchange="toggleOvertimeField()" required>
+                    <option value="">-- 請選擇 --</option>
+                    <option value="補假">補假</option>
+                    <option value="事假(家庭照顧假)">事假(家庭照顧假) [限7天]</option>
+                    <option value="病假">病假 [限28天]</option>
+                    <option value="特休/慰勞假">特休/慰勞假</option>
+                    <option value="公假">公假</option>
+                    <option value="婚假">婚假</option>
+                    <option value="喪假">喪假</option>
+                    <option value="產前/陪產/娩假">產前/陪產/娩假</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row" id="overtimeRow" style="display:none;">
+            <div class="form-group">
+                <label style="color:#d97706;">原加班日期 (補假專用欄位) <span style="color:#ef4444;">*</span></label>
+                <input type="date" id="overtimeDate">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group"><label>開始時間</label><input type="datetime-local" id="startTime" onchange="calculateDuration()" required></div>
+            <div class="form-group"><label>結束時間</label><input type="datetime-local" id="endTime" onchange="calculateDuration()" required></div>
+            <div class="form-group"><label>職務代理人</label><input type="text" id="agent" placeholder="請輸入代理人姓名" required></div>
+        </div>
+        
+        <div class="leave-summary-box">
+            <span>預計請假合計：</span>
+            <div><span id="calcDays" style="font-size:1.2rem; color:#2563eb;">0</span> 天 (<span id="calcHours" style="font-size:1.2rem; color:#2563eb;">0</span> 小時)</div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:15px;"><label>請假事由</label><textarea id="reason" required></textarea></div>
+        <button type="submit" class="btn btn-primary">送出請假申請</button>
+    </form>
+    
+    <br>
+    <div class="header-title">📋 我的請假紀錄與簽核進度</div>
+    <table>
+        <thead><tr><th>申請時間</th><th>假別</th><th>原加班日</th><th>請假區間</th><th>天數(小時)</th><th>事由</th><th>代理人</th><th>二級主管</th><th>狀態</th><th>操作</th></tr></thead>
+        <tbody id="myRecordsTable"></tbody>
+    </table>
+</div>
+
+<!-- 面板 2：主管審核面板 -->
+<div id="panel-mgr" class="card view-panel">
+    <div class="header-title"><span id="mgrPanelTitle">🔍 請假審核核定區</span></div>
+    <p style="margin-bottom:15px; color:#64748b; font-size:0.88rem;" id="mgrPanelNote"></p>
+    <table>
+        <thead><tr><th>申請時間</th><th>組別/申請人</th><th>假別</th><th>原加班日</th><th>請假區間</th><th>天數</th><th>事由</th><th>代理人</th><th>狀態/操作</th></tr></thead>
+        <tbody id="mgrTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 面板 3：人事管理員檢視與詳細報表區 -->
+<div id="panel-hr" class="card view-panel">
+    <div class="header-title">
+        <span>📊 全室學年度考勤匯總與假別統計報表</span>
+        <button class="btn btn-export" onclick="exportUserStatsCSV()">📥 匯出全室請假明細與統計表 (CSV)</button>
+    </div>
+    
+    <div class="header-title" style="font-size:1.1rem; border:none; margin-bottom:10px;">各同仁本學年度累計假別統計</div>
+    <div style="overflow-x:auto; margin-bottom:25px;">
+        <table id="hrSummaryTable">
+            <thead>
+                <tr>
+                    <th>組別</th><th>姓名</th><th>總次數</th><th>核定總天數</th><th>核定總小時</th>
+                    <th>事假(天)</th><th>病假(天)</th><th>特休(天)</th><th>補假(天)</th><th>公假(天)</th><th>其他(天)</th>
+                </tr>
+            </thead>
+            <tbody id="hrSummaryTbody"></tbody>
+        </table>
+    </div>
+
+    <div class="header-title" style="font-size:1.1rem; border:none; margin-bottom:10px;">所有請假申請明細流水帳</div>
+    <table>
+        <thead><tr><th>申請時間</th><th>組別/姓名</th><th>假別</th><th>原加班日</th><th>請假區間</th><th>天數(小時)</th><th>事由</th><th>二級主管</th><th>狀態</th><th>操作管理</th></tr></thead>
+        <tbody id="hrTable"></tbody>
+    </table>
+</div>
+
+<script>
+    // --- 沙盒與沙箱環境防呆 Safe Storage 機制 ---
+    let memoryStore = {};
+
+    function safeGetItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return memoryStore[key] || null;
+        }
+    }
+
+    function safeSetItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            memoryStore[key] = value;
+        }
+    }
+
+    const memberDeptMap = {
+        "邱松嵐":"室本部", "莊博鈞":"室本部", "沈大鈞":"室本部", "陳志亮":"室本部", "賴淑秀":"室本部",
+        "陳逸弘":"行政組", "蔡志遠":"行政組", "陳祥吉":"行政組", "黃世杰":"行政組", "王志遠":"行政組", "徐至杰":"行政組", "廖顏馥婷":"行政組", "蔣德馨":"行政組", "夏紹俊":"行政組", "劉家勇":"行政組", "李憲中":"行政組", "曾柳僑":"行政組",
+        "鍾博舜":"教學組", "林靖棠":"教學組", "李聿婷":"教學組", "黃偉誠":"教學組", "邱順興":"教學組", "鄭惠文":"教學組",
+        "虢恕仁":"服務組", "許家豪":"服務組", "徐建中":"服務組", "廖怡婷":"服務組", "高喜兒":"服務組", "蔡培君":"服務組", "甯玉雯":"服務組", "許欣恬":"服務組", "蔡明浩":"服務組",
+        "hr":"人事處"
+    };
+
+    let currentUser = null;
+    let userPasswords = {};
+    let leaveRecords = [];
+
+    // 安全讀取初始化資料
+    try {
+        userPasswords = JSON.parse(safeGetItem('userPasswords')) || {};
+        leaveRecords = JSON.parse(safeGetItem('militaryLeaveRecords')) || [];
+    } catch (e) {
+        userPasswords = {};
+        leaveRecords = [];
+    }
+
+    // 切換密碼顯示/隱藏 (眼睛按鈕)
+    function togglePasswordVisibility(inputId, eyeIcon) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            eyeIcon.innerText = '🙈';
+        } else {
+            input.type = 'password';
+            eyeIcon.innerText = '👁️';
+        }
+    }
+
+    function openForgotModal() { document.getElementById('forgotModal').style.display = 'flex'; }
+    function closeForgotModal() { document.getElementById('forgotModal').style.display = 'none'; }
+
+    function handleResetPwd(e) {
+        e.preventDefault();
+        const username = document.getElementById('resetUserSelect').value;
+        const dept = document.getElementById('resetDeptSelect').value;
+
+        if (memberDeptMap[username] === dept) {
+            userPasswords[username] = '123456';
+            safeSetItem('userPasswords', JSON.stringify(userPasswords));
+            alert(`【驗證成功】已重置 ${username} 的密碼為預設密碼：123456\n請使用預設密碼重新登入！`);
+            closeForgotModal();
+        } else {
+            alert('【驗證失敗】選擇的姓名與所屬組別不符，請重新確認！');
+        }
+    }
+
+    function getCurrentAcademicYearRange() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        let startYear = (month >= 8) ? year : year - 1;
+        let endYear = startYear + 1;
+
+        const startDate = new Date(`${startYear}-08-01T00:00:00`);
+        const endDate = new Date(`${endYear}-07-31T23:59:59`);
+        const yearLabel = `${startYear - 1911} 學年度 (${startYear}/08/01 ~ ${endYear}/07/31)`;
+
+        return { startDate, endDate, yearLabel };
+    }
+
+    function toggleOvertimeField() {
+        const leaveType = document.getElementById('leaveType').value;
+        const row = document.getElementById('overtimeRow');
+        const input = document.getElementById('overtimeDate');
+        if (leaveType === '補假') {
+            row.style.display = 'flex';
+            input.required = true;
+        } else {
+            row.style.display = 'none';
+            input.required = false;
+            input.value = '';
+        }
+    }
+
+    function handleLogin(e) {
+        e.preventDefault();
+        const username = document.getElementById('loginUserSelect').value;
+        const pass = document.getElementById('loginPassword').value;
+        const currentSavedPwd = userPasswords[username] || '123456';
+
+        if (pass !== currentSavedPwd) {
+            alert('密碼錯誤！預設密碼為 123456');
+            return;
+        }
+
+        currentUser = { name: username, dept: memberDeptMap[username] || '軍訓室' };
+        document.getElementById('loginModal').style.display = 'none';
+        document.getElementById('mainNavBar').style.display = 'flex';
+        document.getElementById('currentUserName').innerText = currentUser.name;
+        document.getElementById('currentUserRole').innerText = currentUser.dept;
+
+        setupUserInterface();
+    }
+
+    function openPwdModal() { document.getElementById('pwdModal').style.display = 'flex'; }
+    function closePwdModal() { document.getElementById('pwdModal').style.display = 'none'; }
+
+    function handleChangePwd(e) {
+        e.preventDefault();
+        const oldP = document.getElementById('oldPwd').value;
+        const newP = document.getElementById('newPwd').value;
+        const currentSavedPwd = userPasswords[currentUser.name] || '123456';
+
+        if (oldP !== currentSavedPwd) {
+            alert('舊密碼輸入錯誤！');
+            return;
+        }
+
+        userPasswords[currentUser.name] = newP;
+        safeSetItem('userPasswords', JSON.stringify(userPasswords));
+        alert('密碼修改成功！');
+        closePwdModal();
+    }
+
+    function logout() {
+        currentUser = null;
+        document.getElementById('loginModal').style.display = 'flex';
+        document.getElementById('mainNavBar').style.display = 'none';
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+    }
+
+    function setupUserInterface() {
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        const name = currentUser.name;
+
+        if (['陳逸弘', '鍾博舜', '虢恕仁', '沈大鈞', '邱松嵐'].includes(name)) {
+            document.getElementById('panel-mgr').classList.add('active');
+            setupMgrPanelTitle(name);
+        } else if (name === 'hr') {
+            document.getElementById('panel-hr').classList.add('active');
+        } else {
+            document.getElementById('panel-employee').classList.add('active');
+            document.getElementById('deptShow').value = currentUser.dept;
+            document.getElementById('empNameShow').value = currentUser.name;
+        }
+        renderTables();
+    }
+
+    function setupMgrPanelTitle(name) {
+        const title = document.getElementById('mgrPanelTitle');
+        const note = document.getElementById('mgrPanelNote');
+        if (name === '陳逸弘') { title.innerText = "🔍 行政組請假審核區 (陳逸弘組長)"; note.innerText = "審核行政組同仁申請；可針對已核定假單進行銷假與更正。"; }
+        else if (name === '鍾博舜') { title.innerText = "🔍 教學組請假審核區 (鍾博舜組長)"; note.innerText = "審核教學組同仁申請；可針對已核定假單進行銷假與更正。"; }
+        else if (name === '虢恕仁') { title.innerText = "🔍 服務組請假審核區 (虢恕仁組長)"; note.innerText = "審核服務組同仁申請；可針對已核定假單進行銷假與更正。"; }
+        else if (name === '沈大鈞') { title.innerText = "🔍 室本部請假審核區 (沈大鈞)"; note.innerText = "審核室本部同仁申請；可針對已核定假單進行銷假與更正。"; }
+        else if (name === '邱松嵐') { title.innerText = "🛡️ 軍訓室主任決行/審核區 (邱松嵐主任)"; note.innerText = "檢視與核定全室同仁之請假申請。"; }
+    }
+
+    function calculateDuration() {
+        const start = new Date(document.getElementById('startTime').value);
+        const end = new Date(document.getElementById('endTime').value);
+        if (end > start) {
+            const hours = ((end - start) / (1000 * 60 * 60)).toFixed(1);
+            const days = (hours / 8).toFixed(1);
+            document.getElementById('calcHours').innerText = hours;
+            document.getElementById('calcDays').innerText = days;
+            return { hours: parseFloat(hours), days: parseFloat(days) };
+        }
+        document.getElementById('calcHours').innerText = '0';
+        document.getElementById('calcDays').innerText = '0';
+        return { hours: 0, days: 0 };
+    }
+
+    function isTimeOverlap(empName, newStartStr, newEndStr) {
+        const newStart = new Date(newStartStr);
+        const newEnd = new Date(newEndStr);
+
+        return leaveRecords.some(r => {
+            if (r.empName === empName && r.status !== '已退回' && r.status !== '已銷假作廢') {
+                const existStart = new Date(r.startTime);
+                const existEnd = new Date(r.endTime);
+                return (newStart < existEnd && newEnd > existStart);
+            }
+            return false;
+        });
+    }
+
+    document.getElementById('leaveForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const duration = calculateDuration();
+        if (duration.hours <= 0) return alert('結束時間必須晚於開始時間！');
+
+        const startTimeStr = document.getElementById('startTime').value.replace('T', ' ');
+        const endTimeStr = document.getElementById('endTime').value.replace('T', ' ');
+        const leaveType = document.getElementById('leaveType').value;
+        const overtimeDate = document.getElementById('overtimeDate').value;
+
+        if (isTimeOverlap(currentUser.name, startTimeStr, endTimeStr)) {
+            alert('【防呆警示】您所選擇的請假時間區間，與已存在（待審核或已核定）的假單時間重疊，請重新確認！');
+            return;
+        }
+
+        const range = getCurrentAcademicYearRange();
+        const userAcademicRecords = leaveRecords.filter(r => 
+            r.empName === currentUser.name && 
+            r.status === '核定完成' &&
+            new Date(r.startTime) >= range.startDate &&
+            new Date(r.startTime) <= range.endDate
+        );
+
+        let currentTypeDays = userAcademicRecords
+            .filter(r => r.leaveType === leaveType)
+            .reduce((sum, r) => sum + r.days, 0);
+
+        if (leaveType === '事假(家庭照顧假)' && (currentTypeDays + duration.days) > 7) {
+            if (!confirm(`【上限警示】依規定一學年事假(含家庭照顧假)最多7天。您目前累計 ${currentTypeDays} 天，加上本次將超過 7 天上限，確定仍要送出申請嗎？`)) {
+                return;
+            }
+        }
+
+        if (leaveType === '病假' && (currentTypeDays + duration.days) > 28) {
+            if (!confirm(`【上限警示】依規定一學年病假最多28天。您目前累計 ${currentTypeDays} 天，加上本次將超過 28 天上限，確定仍要送出申請嗎？`)) {
+                return;
+            }
+        }
+
+        let targetMgr = "陳逸弘";
+        if (currentUser.dept === "教學組") targetMgr = "鍾博舜";
+        if (currentUser.dept === "服務組") targetMgr = "虢恕仁";
+        if (currentUser.dept === "室本部") targetMgr = "沈大鈞";
+
+        const newRecord = {
+            id: Date.now(),
+            applyTime: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+            dept: currentUser.dept,
+            empName: currentUser.name,
+            leaveType: leaveType,
+            overtimeDate: overtimeDate || '-',
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            hours: duration.hours,
+            days: duration.days,
+            reason: document.getElementById('reason').value,
+            agent: document.getElementById('agent').value,
+            targetMgr: targetMgr,
+            status: '待二級審核'
+        };
+
+        leaveRecords.unshift(newRecord);
+        safeSetItem('militaryLeaveRecords', JSON.stringify(leaveRecords));
+        alert(`請假單送出成功，已流轉給二級主管【${targetMgr}】審核。`);
+        this.reset();
+        toggleOvertimeField();
+        calculateDuration();
+        renderTables();
+    });
+
+    function withdrawRecord(id) {
+        if (confirm('確定要撤回此筆請假申請嗎？撤回後可重新填寫。')) {
+            leaveRecords = leaveRecords.filter(r => r.id !== id);
+            safeSetItem('militaryLeaveRecords', JSON.stringify(leaveRecords));
+            alert('已成功撤回該筆請假單！');
+            renderTables();
+        }
+    }
+
+    function cancelRecord(id) {
+        if (confirm('確定要將此筆已核定的假單作廢/銷假嗎？銷假後該筆時數將不納入考勤統計。')) {
+            const item = leaveRecords.find(r => r.id === id);
+            if (item) {
+                item.status = '已銷假作廢';
+                safeSetItem('militaryLeaveRecords', JSON.stringify(leaveRecords));
+                alert('該筆假單已成功銷假作廢，考勤統計天數已自動扣除恢復！');
+                renderTables();
+            }
+        }
+    }
+
+    function renderUserAcademicStats() {
+        const range = getCurrentAcademicYearRange();
+        document.getElementById('academicYearLabel').innerText = range.yearLabel;
+
+        const myApproved = leaveRecords.filter(r => 
+            r.empName === currentUser.name && 
+            r.status === '核定完成' &&
+            new Date(r.startTime) >= range.startDate &&
+            new Date(r.startTime) <= range.endDate
+        );
+
+        const stats = { "事假": 0, "病假": 0, "特休": 0, "補假": 0, "公假": 0, "總天數": 0, "總時數": 0 };
+
+        myApproved.forEach(r => {
+            stats["總天數"] += r.days;
+            stats["總時數"] += r.hours;
+            if (r.leaveType.includes("事假")) stats["事假"] += r.days;
+            else if (r.leaveType.includes("病假")) stats["病假"] += r.days;
+            else if (r.leaveType.includes("特休") || r.leaveType.includes("慰勞假")) stats["特休"] += r.days;
+            else if (r.leaveType.includes("補假")) stats["補假"] += r.days;
+            else if (r.leaveType.includes("公假")) stats["公假"] += r.days;
+        });
+
+        const grid = document.getElementById('userStatsGrid');
+        grid.innerHTML = `
+            <div class="user-stat-card ${stats['事假'] >= 7 ? 'warning' : ''}">
+                <div class="title">事假(家庭照顧假)</div>
+                <div class="val">${stats['事假'].toFixed(1)} / 7 天</div>
+            </div>
+            <div class="user-stat-card ${stats['病假'] >= 28 ? 'warning' : ''}">
+                <div class="title">病假</div>
+                <div class="val">${stats['病假'].toFixed(1)} / 28 天</div>
+            </div>
+            <div class="user-stat-card">
+                <div class="title">特休/慰勞假</div>
+                <div class="val">${stats['特休'].toFixed(1)} 天</div>
+            </div>
+            <div class="user-stat-card">
+                <div class="title">補假</div>
+                <div class="val">${stats['補假'].toFixed(1)} 天</div>
+            </div>
+            <div class="user-stat-card">
+                <div class="title">公假</div>
+                <div class="val">${stats['公假'].toFixed(1)} 天</div>
+            </div>
+            <div class="user-stat-card" style="background:#eff6ff; border-color:#bfdbfe;">
+                <div class="title" style="color:#1d4ed8;">本學年累計請假</div>
+                <div class="val" style="color:#1e40af;">${stats['總天數'].toFixed(1)} 天 (${stats['總時數'].toFixed(1)}h)</div>
+            </div>
+        `;
+    }
+
+    function renderHRSummaryTable() {
+        const range = getCurrentAcademicYearRange();
+        const hrSummaryTbody = document.getElementById('hrSummaryTbody');
+        if (!hrSummaryTbody) return;
+
+        hrSummaryTbody.innerHTML = '';
+        const userSummaryMap = {};
+
+        Object.keys(memberDeptMap).forEach(name => {
+            if (name !== 'hr') {
+                userSummaryMap[name] = {
+                    dept: memberDeptMap[name], name: name, count: 0, totalDays: 0, totalHours: 0,
+                    personal: 0, sick: 0, annual: 0, comp: 0, official: 0, other: 0
+                };
+            }
+        });
+
+        leaveRecords.filter(r => 
+            r.status === '核定完成' &&
+            new Date(r.startTime) >= range.startDate &&
+            new Date(r.startTime) <= range.endDate
+        ).forEach(r => {
+            if (userSummaryMap[r.empName]) {
+                const u = userSummaryMap[r.empName];
+                u.count += 1;
+                u.totalDays += r.days;
+                u.totalHours += r.hours;
+
+                if (r.leaveType.includes("事假")) u.personal += r.days;
+                else if (r.leaveType.includes("病假")) u.sick += r.days;
+                else if (r.leaveType.includes("特休") || r.leaveType.includes("慰勞假")) u.annual += r.days;
+                else if (r.leaveType.includes("補假")) u.comp += r.days;
+                else if (r.leaveType.includes("公假")) u.official += r.days;
+                else u.other += r.days;
+            }
+        });
+
+        Object.values(userSummaryMap).forEach(u => {
+            hrSummaryTbody.innerHTML += `<tr>
+                <td>${u.dept}</td>
+                <td><strong>${u.name}</strong></td>
+                <td>${u.count} 次</td>
+                <td><strong>${u.totalDays.toFixed(1)}</strong> 天</td>
+                <td>${u.totalHours.toFixed(1)} hrs</td>
+                <td style="${u.personal >= 7 ? 'color:#dc2626;font-weight:bold;' : ''}">${u.personal.toFixed(1)}</td>
+                <td style="${u.sick >= 28 ? 'color:#dc2626;font-weight:bold;' : ''}">${u.sick.toFixed(1)}</td>
+                <td>${u.annual.toFixed(1)}</td>
+                <td>${u.comp.toFixed(1)}</td>
+                <td>${u.official.toFixed(1)}</td>
+                <td>${u.other.toFixed(1)}</td>
+            </tr>`;
+        });
+    }
+
+    function renderTables() {
+        if (!currentUser) return;
+
+        if (currentUser.name !== 'hr' && !['陳逸弘', '鍾博舜', '虢恕仁', '沈大鈞', '邱松嵐'].includes(currentUser.name)) {
+            renderUserAcademicStats();
+        }
+
+        const myTbody = document.getElementById('myRecordsTable');
+        if (myTbody) {
+            myTbody.innerHTML = '';
+            leaveRecords.filter(r => r.empName === currentUser.name).forEach(r => {
+                let actionBtn = '-';
+                if (r.status === '待二級審核') {
+                    actionBtn = `<button class="action-btn btn-cancel" onclick="withdrawRecord(${r.id})">撤回修改</button>`;
+                }
+                myTbody.innerHTML += `<tr>
+                    <td>${r.applyTime}</td>
+                    <td>${r.leaveType}</td>
+                    <td>${r.overtimeDate || '-'}</td>
+                    <td>${r.startTime}<br>至 ${r.endTime}</td>
+                    <td>${r.days}天 (${r.hours}h)</td>
+                    <td>${r.reason}</td>
+                    <td>${r.agent}</td>
+                    <td>${r.targetMgr}</td>
+                    <td><span class="badge ${getBadgeClass(r.status)}">${r.status}</span></td>
+                    <td>${actionBtn}</td>
+                </tr>`;
+            });
+        }
+
+        const mgrTbody = document.getElementById('mgrTableBody');
+        if (mgrTbody) {
+            mgrTbody.innerHTML = '';
+            let filtered = [];
+            if (currentUser.name === '陳逸弘') filtered = leaveRecords.filter(r => r.dept === '行政組');
+            if (currentUser.name === '鍾博舜') filtered = leaveRecords.filter(r => r.dept === '教學組');
+            if (currentUser.name === '虢恕仁') filtered = leaveRecords.filter(r => r.dept === '服務組');
+            if (currentUser.name === '沈大鈞') filtered = leaveRecords.filter(r => r.dept === '室本部');
+            if (currentUser.name === '邱松嵐') filtered = leaveRecords;
+
+            filtered.forEach(r => {
+                let actionBtn = '';
+                if (r.status === '待二級審核') {
+                    actionBtn = `
+                        <button class="action-btn btn-approve" onclick="approveRecord(${r.id})">同意並核定</button>
+                        <button class="action-btn btn-reject" onclick="rejectRecord(${r.id})">退回</button>
+                    `;
+                } else if (r.status === '核定完成') {
+                    actionBtn = `<button class="action-btn btn-delete" onclick="cancelRecord(${r.id})">銷假作廢</button>`;
+                } else {
+                    actionBtn = `<span style="color:#94a3b8;">已結案</span>`;
+                }
+
+                mgrTbody.innerHTML += `<tr>
+                    <td>${r.applyTime}</td>
+                    <td><strong>${r.empName}</strong> (${r.dept})</td>
+                    <td>${r.leaveType}</td>
+                    <td>${r.overtimeDate || '-'}</td>
+                    <td>${r.startTime} ~ ${r.endTime}</td>
+                    <td>${r.days}天 (${r.hours}h)</td>
+                    <td>${r.reason}</td>
+                    <td>${r.agent}</td>
+                    <td>${actionBtn}</td>
+                </tr>`;
+            });
+        }
+
+        const hrTbody = document.getElementById('hrTable');
+        if (hrTbody) {
+            renderHRSummaryTable();
+            hrTbody.innerHTML = '';
+            leaveRecords.forEach(r => {
+                let actionBtn = '-';
+                if (r.status === '核定完成') {
+                    actionBtn = `<button class="action-btn btn-delete" onclick="cancelRecord(${r.id})">銷假作廢</button>`;
+                }
+                hrTbody.innerHTML += `<tr>
+                    <td>${r.applyTime}</td>
+                    <td><strong>${r.empName}</strong> (${r.dept})</td>
+                    <td>${r.leaveType}</td>
+                    <td>${r.overtimeDate || '-'}</td>
+                    <td>${r.startTime} ~ ${r.endTime}</td>
+                    <td>${r.days}天 (${r.hours}h)</td>
+                    <td>${r.reason}</td>
+                    <td>${r.targetMgr}</td>
+                    <td><span class="badge ${getBadgeClass(r.status)}">${r.status}</span></td>
+                    <td>${actionBtn}</td>
+                </tr>`;
+            });
+        }
+    }
+
+    function approveRecord(id) {
+        const item = leaveRecords.find(r => r.id === id);
+        if (item) {
+            item.status = '核定完成';
+            safeSetItem('militaryLeaveRecords', JSON.stringify(leaveRecords));
+            alert('已完成審核與核定作業！');
+            renderTables();
+        }
+    }
+
+    function rejectRecord(id) {
+        const item = leaveRecords.find(r => r.id === id);
+        if (item) {
+            item.status = '已退回';
+            safeSetItem('militaryLeaveRecords', JSON.stringify(leaveRecords));
+            alert('已退回該筆申請。');
+            renderTables();
+        }
+    }
+
+    function getBadgeClass(status) {
+        if (status === '待二級審核') return 'badge-pending';
+        if (status === '核定完成') return 'badge-approved';
+        if (status === '已銷假作廢') return 'badge-cancelled';
+        return 'badge-rejected';
+    }
+
+    function exportUserStatsCSV() {
+        if (leaveRecords.length === 0) return alert('無紀錄可匯出');
+        
+        let csv = "\uFEFF組別,姓名,假別,原加班日期,開始時間,結束時間,總天數,總小時,事由,代理人,審核主管,簽核狀態\n";
+        
+        leaveRecords.forEach(r => {
+            csv += `"${r.dept}","${r.empName}","${r.leaveType}","${r.overtimeDate || '-'}","${r.startTime}","${r.endTime}",${r.days},${r.hours},"${r.reason}","${r.agent}","${r.targetMgr}","${r.status}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `軍訓室請假明細與考勤統計表.csv`;
+        a.click();
+    }
+</script>
+</body>
+</html>
