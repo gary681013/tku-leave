@@ -1,0 +1,35 @@
+name: 系統資料庫每日備份
+
+on:
+  schedule:
+    # 台灣時間每天清晨 04:00 (UTC 20:00) 自動執行
+    - cron: '0 20 * * *'
+  # 支援在網頁上手動按鈕觸發
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 簽出專案
+        uses: actions/checkout@v4
+
+      - name: 安裝 PostgreSQL 工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: 執行資料庫備份
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backups
+          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+          pg_dump "$DB_URL" -F c -b -v -f "backups/tku_leave_db_${TIMESTAMP}.dump"
+
+      - name: 上傳備份檔案
+        uses: actions/upload-artifact@v4
+        with:
+          name: tku-leave-backup
+          path: backups/
+          retention-days: 30
